@@ -499,6 +499,11 @@ function parseGitInvocation(cmd: string): ParsedGit | null {
   let operation: string | null = null;
   while (i < tokens.length) {
     const t = tokens[i];
+    if (t === "-c" || t === "--config-env") {
+      // 配置选项的下一个参数是配置值，不能将它当作 Git 子命令。
+      i += 2;
+      continue;
+    }
     if (t === "-C" || t === "--directory") {
       scopedDir = tokens[i + 1] ?? null;
       i += 2;

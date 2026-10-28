@@ -25,6 +25,41 @@ function cwdEventDataOf(cmd: string): string | undefined {
 }
 
 describe("parseGitInvocation — Gap #2 tilde + --directory=", () => {
+  test.each([
+    "-c color.ui=false",
+    '--config-env core.editor=GIT_EDITOR',
+    '-c "user.name=Test User" -c color.ui=false',
+    "-ccolor.ui=false",
+    "--config-env=core.editor=GIT_EDITOR",
+  ])("全局配置参数 %s 不应遮蔽子命令和目录", (flags) => {
+    const events = extractEvents({
+      tool_name: "Bash",
+      tool_input: { command: `git ${flags} -C /abs/repo status` },
+      tool_response: "",
+    });
+    expect(events.find((event) => event.type === "cwd")?.data).toBe("/abs/repo");
+    expect(events.find((event) => event.category === "git")?.data).toBe("status");
+  });
+
+  test("目录后的配置参数仍应保留项目归属", () => {
+    const events = extractEvents({
+      tool_name: "Bash",
+      tool_input: { command: "git -C /abs/repo -c color.ui=false status" },
+      tool_response: "",
+    });
+    expect(events.find((event) => event.type === "cwd")?.data).toBe("/abs/repo");
+    expect(events.find((event) => event.category === "git")?.data).toBe("status");
+  });
+
+  test("全局配置参数后的提交仍应记录提交消息", () => {
+    const events = extractEvents({
+      tool_name: "Bash",
+      tool_input: { command: 'git -c color.ui=false commit -m "fix attribution"' },
+      tool_response: "",
+    });
+    expect(events.find((event) => event.type === "git_commit")?.data).toBe("fix attribution");
+  });
+
   test("tracer: `git -C ~/repos/myrepo status` → expanded homedir", () => {
     const data = cwdEventDataOf(`git -C ~/repos/myrepo status`);
     expect(data).toBe(`${homedir()}/repos/myrepo`);
